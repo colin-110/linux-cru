@@ -1,0 +1,19 @@
+# Changelog
+
+## 0.1.0 (unreleased)
+
+First version.
+
+- Read EDIDs from `/sys/class/drm` and list their detailed resolutions.
+- Timing calculation:
+  - keep panel timing (scaled pixel clock)
+  - CVT
+  - CVT reduced blanking
+  - CVT reduced blanking v2
+  - manual editing
+- Rebuild EDIDs with new modes, keeping all other data and fixing checksums.
+- Install and remove boot-time overrides on GRUB + initramfs-tools systems,
+  with dry run, backups and a small pkexec helper.
+- `linuxcru` command: `list`, `show`, `calc`, `generate`, `apply`, `status`
+  and `reset`.
+- `linuxcru-gui` Qt window with a CRU-style mode list and timing dialog.
