@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-13)
 
-First version.
+First release. Tested on Kubuntu with KDE Plasma 6 (Wayland) on an AUO
+B156HAN02.1 laptop panel running at 96 Hz instead of 60 Hz.
 
 - Read EDIDs from `/sys/class/drm` and list their detailed resolutions.
 - Timing calculation:
