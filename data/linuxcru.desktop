@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=linuxcru
+GenericName=Custom Resolution Utility
+Comment=Add custom refresh rates to your displays
+Exec=linuxcru-gui
+Icon=video-display
+Terminal=false
+Categories=Settings;HardwareSettings;Qt;
+Keywords=refresh;rate;hz;edid;overclock;display;monitor;

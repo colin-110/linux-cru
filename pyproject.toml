@@ -57,3 +57,8 @@ disallow_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+# The GUI is optional; CI type-checks without PySide6 installed.
+module = ["PySide6.*"]
+ignore_missing_imports = true
