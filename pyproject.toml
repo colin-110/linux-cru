@@ -1,0 +1,53 @@
+[project]
+name = "linuxcru"
+dynamic = ["version"]
+description = "CRU-style custom refresh rates for Linux displays (EDID override generator and installer)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Colin K Thomas" }]
+keywords = ["edid", "refresh rate", "overclock", "display", "kde", "wayland"]
+classifiers = [
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Hardware",
+]
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6-Essentials>=6.8"]
+dev = ["pytest", "ruff", "mypy", "pre-commit"]
+
+[project.urls]
+Homepage = "https://github.com/colin-110/linuxcru"
+Issues = "https://github.com/colin-110/linuxcru/issues"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "linuxcru.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_optional = true
