@@ -32,9 +32,13 @@ def helper_command(args: Sequence[str], *, as_root: bool | None = None) -> list[
     return [pkexec, *base]
 
 
-def run_helper(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    """Run the helper, asking for the admin password when needed."""
-    return subprocess.run(helper_command(args), capture_output=True, text=True)
+def run_helper(args: Sequence[str], *, escalate: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run the helper, asking for the admin password when ``escalate`` is set.
+
+    Dry runs only read files, so they are run without escalating.
+    """
+    command = helper_command(args, as_root=None if escalate else True)
+    return subprocess.run(command, capture_output=True, text=True)
 
 
 def password_was_cancelled(result: subprocess.CompletedProcess[str]) -> bool:

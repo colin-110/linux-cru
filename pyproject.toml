@@ -21,6 +21,12 @@ dependencies = []
 gui = ["PySide6-Essentials>=6.8"]
 dev = ["pytest", "ruff", "mypy", "pre-commit"]
 
+[project.scripts]
+linuxcru = "linuxcru.cli.main:main"
+
+[project.gui-scripts]
+linuxcru-gui = "linuxcru.gui.app:main"
+
 [project.urls]
 Homepage = "https://github.com/colin-110/linuxcru"
 Issues = "https://github.com/colin-110/linuxcru/issues"
