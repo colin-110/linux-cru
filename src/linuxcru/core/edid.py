@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from linuxcru.core.timing import DTD_SIZE, Timing, decode_dtd, is_timing_descriptor
+
 BLOCK_SIZE = 128
 HEADER = bytes([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00])
 EXTENSION_COUNT_OFFSET = 126
@@ -96,6 +98,36 @@ class Descriptor:
         if self.tag in (TAG_SERIAL, TAG_ALPHANUMERIC, TAG_PRODUCT_NAME):
             return _descriptor_text(self.data)
         return None
+
+
+@dataclass(frozen=True)
+class DetailedTiming:
+    """A timing found in the EDID, plus where it is stored."""
+
+    timing: Timing
+    block: int
+    offset: int
+
+    @property
+    def location(self) -> str:
+        return "base block" if self.block == 0 else f"extension block {self.block}"
+
+
+def cta_dtd_offsets(block: bytes) -> list[int]:
+    """Offsets of the DTDs stored in a CTA-861 extension block.
+
+    Byte 2 says where the DTDs start (0 means there are none). They run until
+    a descriptor with a zero pixel clock or until the checksum byte.
+    """
+    start = block[2]
+    if block[0] != EXT_CTA or start < 4:
+        return []
+    offsets = []
+    offset = start
+    while offset + DTD_SIZE <= 127 and is_timing_descriptor(block[offset : offset + DTD_SIZE]):
+        offsets.append(offset)
+        offset += DTD_SIZE
+    return offsets
 
 
 class Edid:
@@ -219,3 +251,25 @@ class Edid:
 
     def checksums_ok(self) -> bool:
         return all(block_checksum_ok(b) for b in self._blocks)
+
+    def detailed_timings(self) -> list[DetailedTiming]:
+        """All DTDs, in order. The first one is the preferred (native) mode."""
+        found = [
+            DetailedTiming(decode_dtd(d.data), 0, DESCRIPTOR_OFFSETS[d.slot])
+            for d in self.descriptors()
+            if d.is_timing
+        ]
+        for index, block in enumerate(self._blocks[1:], start=1):
+            for offset in cta_dtd_offsets(block):
+                found.append(
+                    DetailedTiming(decode_dtd(block[offset : offset + DTD_SIZE]), index, offset)
+                )
+        return found
+
+    def timings(self) -> list[Timing]:
+        return [dt.timing for dt in self.detailed_timings()]
+
+    @property
+    def preferred_timing(self) -> Timing | None:
+        timings = self.timings()
+        return timings[0] if timings else None
