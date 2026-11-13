@@ -103,6 +103,48 @@ def test_impossible_timing_disables_ok(app, native) -> None:  # type: ignore[no-
     assert "pixel clock" in dialog.notes.text()
 
 
+def _type(box, text: str) -> None:  # type: ignore[no-untyped-def]
+    """Replace a spin box's text by typing, without pressing Enter."""
+    from PySide6.QtTest import QTest
+
+    box.setFocus()
+    box.lineEdit().selectAll()
+    QTest.keyClicks(box.lineEdit(), text)
+
+
+def test_typing_a_refresh_rate_recalculates_immediately(app, native) -> None:  # type: ignore[no-untyped-def]
+    dialog = TimingDialog(native)
+    _type(dialog.refresh, "96")
+    t = dialog.timing()
+    assert t is not None and t.pixel_clock_khz == 227_000
+    assert dialog.clock.value() == pytest.approx(227.0)
+
+
+def test_typing_a_resolution_recalculates_immediately(app, native) -> None:  # type: ignore[no-untyped-def]
+    dialog = TimingDialog(native)
+    dialog.method.setCurrentIndex(dialog.method.findData("cvt-rb2"))
+    _type(dialog.width_box, "1280")
+    _type(dialog.height_box, "720")
+    t = dialog.timing()
+    assert t is not None and t.resolution == (1280, 720)
+
+
+def test_typing_a_porch_recalculates_immediately(app, native) -> None:  # type: ignore[no-untyped-def]
+    dialog = TimingDialog(native, native)
+    _type(dialog.hback, "100")
+    t = dialog.timing()
+    assert t is not None and t.hback == 100
+    assert t.refresh_hz == pytest.approx(native.refresh_hz, abs=0.01)
+
+
+def test_typing_a_pixel_clock_updates_refresh(app, native) -> None:  # type: ignore[no-untyped-def]
+    dialog = TimingDialog(native, native)
+    _type(dialog.clock, "227")
+    t = dialog.timing()
+    assert t is not None and t.pixel_clock_khz == 227_000
+    assert dialog.refresh.value() == pytest.approx(96.0, abs=0.01)
+
+
 # ------------------------------------------------------------ main window
 
 

@@ -29,7 +29,6 @@ MANUAL = "manual"
 def _spin(maximum: int, minimum: int = 0) -> QSpinBox:
     box = QSpinBox()
     box.setRange(minimum, maximum)
-    box.setKeyboardTracking(False)
     box.setAlignment(Qt.AlignmentFlag.AlignRight)
     return box
 
@@ -66,7 +65,6 @@ class TimingDialog(QDialog):
         self.refresh.setRange(1.0, 1000.0)
         self.refresh.setDecimals(3)
         self.refresh.setSuffix(" Hz")
-        self.refresh.setKeyboardTracking(False)
 
         top = QFormLayout()
         top.addRow("Timing:", self.method)
@@ -102,7 +100,6 @@ class TimingDialog(QDialog):
         self.clock.setDecimals(2)
         self.clock.setSingleStep(0.01)
         self.clock.setSuffix(" MHz")
-        self.clock.setKeyboardTracking(False)
         self.summary = QLabel()
         self.notes = QLabel()
         self.notes.setWordWrap(True)
