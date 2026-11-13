@@ -7,10 +7,12 @@ checksum byte chosen so that the 128 bytes add up to a multiple of 256.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from linuxcru.core.timing import DTD_SIZE, Timing, decode_dtd, is_timing_descriptor
+from linuxcru.core.timing import DTD_SIZE, Timing, decode_dtd, encode_dtd, is_timing_descriptor
 
 BLOCK_SIZE = 128
 HEADER = bytes([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00])
@@ -128,6 +130,58 @@ def cta_dtd_offsets(block: bytes) -> list[int]:
         offsets.append(offset)
         offset += DTD_SIZE
     return offsets
+
+
+DUMMY_DESCRIPTOR = bytes([0, 0, 0, TAG_DUMMY]) + bytes(DESCRIPTOR_SIZE - 4)
+SIMILAR_REFRESH_HZ = 0.5
+
+
+def new_cta_block() -> bytes:
+    """An empty CTA-861 rev 3 block: no data blocks, DTDs start at byte 4."""
+    block = bytearray(BLOCK_SIZE)
+    block[0:4] = bytes([EXT_CTA, 0x03, 0x04, 0x00])
+    return with_fixed_checksum(bytes(block))
+
+
+def cta_capacity(block: bytes) -> int:
+    """How many DTDs fit after the data block collection of a CTA block."""
+    start = block[2] if block[2] >= 4 else 4
+    return (127 - start) // DTD_SIZE
+
+
+def _fill_cta_block(block: bytes, dtds: Sequence[bytes]) -> bytes:
+    """Replace the DTDs of a CTA block, keeping its data blocks."""
+    start = block[2] if block[2] >= 4 else 4
+    if len(dtds) > cta_capacity(block):
+        raise EdidError("too many DTDs for this CTA block")
+    new = bytearray(block[:start]) + b"".join(dtds)
+    new += bytes(BLOCK_SIZE - len(new))
+    new[2] = start
+    native = min(block[3] & 0x0F, len(dtds))
+    new[3] = (block[3] & 0xF0) | native
+    return with_fixed_checksum(bytes(new))
+
+
+def _relax_range_limits(base: bytearray, timings: Sequence[Timing]) -> None:
+    """Widen a Display Range Limits descriptor so it covers ``timings``.
+
+    Only plain (no offset flags) limits are adjusted; values are only ever
+    widened, never narrowed.
+    """
+    for offset in DESCRIPTOR_OFFSETS:
+        desc = base[offset : offset + DESCRIPTOR_SIZE]
+        if is_timing_descriptor(bytes(desc)) or desc[3] != TAG_RANGE_LIMITS or desc[4]:
+            continue
+        min_v = math.floor(min(t.refresh_hz for t in timings))
+        max_v = math.ceil(max(t.refresh_hz for t in timings))
+        min_h = math.floor(min(t.hfreq_khz for t in timings))
+        max_h = math.ceil(max(t.hfreq_khz for t in timings))
+        max_clock = math.ceil(max(t.pixel_clock_khz for t in timings) / 10_000)
+        base[offset + 5] = max(1, min(base[offset + 5], min_v))
+        base[offset + 6] = min(255, max(base[offset + 6], max_v))
+        base[offset + 7] = max(1, min(base[offset + 7], min_h))
+        base[offset + 8] = min(255, max(base[offset + 8], max_h))
+        base[offset + 9] = min(255, max(base[offset + 9], max_clock))
 
 
 class Edid:
@@ -273,3 +327,76 @@ class Edid:
     def preferred_timing(self) -> Timing | None:
         timings = self.timings()
         return timings[0] if timings else None
+
+    # ---------------------------------------------------------------- editing
+
+    def timing_capacity(self) -> int:
+        """How many detailed timings this EDID can hold after a rebuild."""
+        base_slots = sum(1 for d in self.descriptors() if d.is_timing or d.tag == TAG_DUMMY)
+        cta = [b for b in self._blocks[1:] if b[0] == EXT_CTA]
+        if cta:
+            return base_slots + sum(cta_capacity(b) for b in cta)
+        return base_slots + cta_capacity(new_cta_block())
+
+    def with_timings(self, timings: Sequence[Timing]) -> Edid:
+        """Return a copy whose detailed timings are exactly ``timings``.
+
+        The first timing becomes the preferred mode. Timings go into the base
+        block slots that already hold timings (or are unused), then into the
+        CTA-861 extension, which is created if needed. Every other byte, such
+        as the panel's name and serial descriptors, is kept.
+        """
+        if not timings:
+            raise EdidError("at least one detailed timing is required")
+        if len(timings) > self.timing_capacity():
+            raise EdidError(
+                f"too many detailed timings ({len(timings)}); "
+                f"this EDID has room for {self.timing_capacity()}"
+            )
+        queue = [encode_dtd(t) for t in timings]
+
+        base = bytearray(self.base)
+        for desc in self.descriptors():
+            if desc.is_timing or desc.tag == TAG_DUMMY:
+                offset = DESCRIPTOR_OFFSETS[desc.slot]
+                base[offset : offset + DESCRIPTOR_SIZE] = (
+                    queue.pop(0) if queue else DUMMY_DESCRIPTOR
+                )
+
+        blocks = [bytes(base), *self._blocks[1:]]
+        cta_indexes = [i for i, b in enumerate(blocks) if i > 0 and b[0] == EXT_CTA]
+        if queue and not cta_indexes:
+            if len(blocks) >= MAX_BLOCKS:
+                raise EdidError("no room for another extension block")
+            blocks.append(new_cta_block())
+            cta_indexes.append(len(blocks) - 1)
+        for index in cta_indexes:
+            take = queue[: cta_capacity(blocks[index])]
+            del queue[: len(take)]
+            blocks[index] = _fill_cta_block(blocks[index], take)
+
+        base = bytearray(blocks[0])
+        base[EXTENSION_COUNT_OFFSET] = len(blocks) - 1
+        _relax_range_limits(base, timings)
+        blocks[0] = with_fixed_checksum(bytes(base))
+        return Edid(blocks)
+
+    def with_timing_added(self, timing: Timing, *, preferred: bool = False) -> Edid:
+        """Add a mode, replacing any existing one that is effectively the same.
+
+        "The same" means equal resolution and a refresh rate within 0.5 Hz, so
+        adding 96 Hz twice does not leave two 96 Hz modes behind.
+        """
+        timings = [
+            t
+            for t in self.timings()
+            if not (
+                t.resolution == timing.resolution
+                and abs(t.refresh_hz - timing.refresh_hz) < SIMILAR_REFRESH_HZ
+            )
+        ]
+        if preferred:
+            timings.insert(0, timing)
+        else:
+            timings.append(timing)
+        return self.with_timings(timings)
