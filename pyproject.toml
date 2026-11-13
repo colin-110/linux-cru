@@ -28,8 +28,8 @@ linuxcru = "linuxcru.cli.main:main"
 linuxcru-gui = "linuxcru.gui.app:main"
 
 [project.urls]
-Homepage = "https://github.com/colin-110/linuxcru"
-Issues = "https://github.com/colin-110/linuxcru/issues"
+Homepage = "https://github.com/colin-110/linux-cru"
+Issues = "https://github.com/colin-110/linux-cru/issues"
 
 [build-system]
 requires = ["setuptools>=77"]

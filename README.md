@@ -74,15 +74,15 @@ With [pipx](https://pipx.pypa.io/) (recommended):
 
 ```bash
 sudo apt install pipx
-pipx install git+https://github.com/colin-110/linuxcru
+pipx install git+https://github.com/colin-110/linux-cru
 pipx inject linuxcru PySide6-Essentials   # for the window
 ```
 
 From a clone:
 
 ```bash
-git clone https://github.com/colin-110/linuxcru
-cd linuxcru
+git clone https://github.com/colin-110/linux-cru
+cd linux-cru
 python3 -m venv .venv
 .venv/bin/pip install ".[gui]"
 .venv/bin/linuxcru-gui
