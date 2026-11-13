@@ -287,3 +287,15 @@ def test_helper_needs_root_on_real_system(capsys: pytest.CaptureFixture[str]) ->
         pytest.skip("running as root")
     assert helper.main(["uninstall"]) == 1
     assert "must run as root" in capsys.readouterr().err
+
+
+def test_warns_when_recovery_mode_is_disabled(
+    tmp_path: Path, runner: FakeRunner, laptop_edid_bytes: bytes
+) -> None:
+    root = make_system(tmp_path, PLAIN_GRUB + 'GRUB_DISABLE_RECOVERY="true"\n')
+    plan = installer(root, runner).plan_install("eDP-1", laptop_edid_bytes)
+    assert any("recovery mode is disabled" in note for note in plan.notes)
+
+    root2 = make_system(tmp_path / "other")
+    plan = installer(root2, runner).plan_install("eDP-1", laptop_edid_bytes)
+    assert not any("recovery" in note for note in plan.notes)

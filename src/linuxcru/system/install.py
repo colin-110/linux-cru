@@ -64,6 +64,9 @@ _CMDLINE_LINE = re.compile(
 )
 
 
+_DISABLE_RECOVERY = re.compile(r"""^\s*GRUB_DISABLE_RECOVERY=["']?(\w+)""", re.MULTILINE)
+
+
 class InstallError(RuntimeError):
     pass
 
@@ -244,6 +247,19 @@ class Installer:
                     found[file] = params
         return found
 
+    def recovery_disabled(self) -> bool:
+        """True if GRUB was told not to create recovery mode entries."""
+        files = [self.path(GRUB_DEFAULT)]
+        dropin_dir = self.path(GRUB_DROPIN_DIR)
+        if dropin_dir.is_dir():
+            files += sorted(dropin_dir.glob("*.cfg"))
+        disabled = False
+        for file in files:
+            if file.is_file():
+                for match in _DISABLE_RECOVERY.finditer(file.read_text()):
+                    disabled = match.group(1) == "true"
+        return disabled
+
     def update_commands(self) -> list[RunCommand]:
         grub = (
             ("update-grub",)
@@ -299,6 +315,12 @@ class Installer:
                 plan.steps.append(WriteFile(file, new_text.encode()))
                 plan.notes.append(f"removing {' '.join(removed)} from {file}")
 
+        if self.recovery_disabled():
+            plan.notes.append(
+                "warning: GRUB recovery mode is disabled (GRUB_DISABLE_RECOVERY=true), so "
+                "if the screen stays black you will have to remove the drm.edid_firmware "
+                "parameter by pressing 'e' in the GRUB menu"
+            )
         connectors = sorted({*self.installed_connectors(), connector})
         plan.steps.append(
             WriteFile(self.path(FIRMWARE_DIR / firmware_name(connector)), edid.to_bytes())
