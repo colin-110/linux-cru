@@ -23,7 +23,7 @@ def main() -> int:
     app.setDesktopFileName("linuxcru")
     window = MainWindow()
     window.show()
-    return app.exec()
+    return int(app.exec())
 
 
 if __name__ == "__main__":
