@@ -141,3 +141,18 @@ def test_no_room_for_a_new_extension_block(base_only_bytes: bytes) -> None:
     timings = Edid.from_bytes(base_only_bytes).timings() * 2
     with pytest.raises(EdidError, match="no room"):
         edid.with_timings(timings)
+
+
+# Regression: found by property-based fuzzing. One changed byte turned the
+# manufacturer descriptor into a "timing" with a zero size, and computing its
+# refresh rate crashed with ZeroDivisionError.
+def corrupt_descriptor(laptop_edid_bytes: bytes) -> bytes:
+    data = bytearray(laptop_edid_bytes)
+    data[72] = 1
+    return with_fixed_checksum(bytes(data[:BLOCK_SIZE])) + bytes(data[BLOCK_SIZE:])
+
+
+def test_broken_descriptor_gives_a_clear_error(laptop_edid_bytes: bytes) -> None:
+    edid = Edid.from_bytes(corrupt_descriptor(laptop_edid_bytes))
+    with pytest.raises(EdidError, match="offset 72"):
+        edid.detailed_timings()

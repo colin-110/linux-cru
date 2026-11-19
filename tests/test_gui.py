@@ -269,3 +269,16 @@ def test_no_displays(app, tmp_path: Path) -> None:  # type: ignore[no-untyped-de
     assert "No connected display" in win.status.text()
     assert not win.apply_button.isEnabled()
     win.close()
+
+
+def test_window_survives_broken_edid(app, tmp_path: Path, laptop_edid_bytes: bytes) -> None:  # type: ignore[no-untyped-def]
+    from test_edid import corrupt_descriptor
+
+    broken = Connector(
+        "eDP-1", "card1", tmp_path, "connected", True, corrupt_descriptor(laptop_edid_bytes)
+    )
+    win = mw.MainWindow([broken], Installer(tmp_path), "")
+    assert "cannot be used" in win.status.text()
+    assert win.table.rowCount() == 0
+    assert not win.apply_button.isEnabled()
+    win.close()

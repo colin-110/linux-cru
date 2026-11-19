@@ -159,12 +159,14 @@ class MainWindow(QMainWindow):
             self.status.setText("No connected display with an EDID was found.")
         else:
             try:
-                self.edid = Edid.from_bytes(connector.edid_bytes)
-                self.timings = self.edid.timings()
-                self.native = self.edid.preferred_timing
+                edid = Edid.from_bytes(connector.edid_bytes)
+                timings = edid.timings()
             except EdidError as exc:
                 self.status.setText(f"The EDID of {connector.name} cannot be used: {exc}")
             else:
+                # Only keep the EDID once every timing in it could be decoded.
+                self.edid, self.timings = edid, timings
+                self.native = timings[0] if timings else None
                 self.status.setText(self._status_text(connector.name))
         self.refresh_table()
 
