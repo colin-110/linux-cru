@@ -154,3 +154,25 @@ def test_cvt_keeps_odd_widths() -> None:
     assert t.hactive == 1366
     assert t.htotal == 1784
     assert t.pixel_clock_khz == 85_250
+
+
+# --------------------------------------------------------- error paths
+
+
+@pytest.mark.parametrize(("width", "height"), [(0, 1080), (1920, 0), (-8, 1080)])
+def test_cvt_rejects_non_positive_resolution(width: int, height: int) -> None:
+    with pytest.raises(TimingError, match="positive"):
+        cvt(width, height, 60)
+    with pytest.raises(TimingError, match="positive"):
+        cvt_rb2(width, height, 60)
+
+
+@pytest.mark.parametrize("refresh", [0, 0.5, 1000.1, 5000])
+def test_cvt_rejects_refresh_out_of_range(refresh: float) -> None:
+    with pytest.raises(TimingError, match="out of range"):
+        cvt(1920, 1080, refresh)
+
+
+def test_panel_method_without_native_timing() -> None:
+    with pytest.raises(TimingError, match="native timing"):
+        calculate(Method.PANEL, 96, width=1920, height=1080)

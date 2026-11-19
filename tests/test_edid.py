@@ -88,3 +88,56 @@ def test_ignores_trailing_blocks_not_declared(base_only_bytes: bytes) -> None:
 )
 def test_manufacturer_ids(raw: bytes, expected: str) -> None:
     assert decode_manufacturer_id(raw) == expected
+
+
+# --------------------------------------------------------- error paths
+
+
+def test_checksum_byte_needs_a_full_block() -> None:
+    with pytest.raises(EdidError, match="128 bytes"):
+        checksum_byte(bytes(127))
+
+
+def test_edid_needs_a_block() -> None:
+    with pytest.raises(EdidError, match="at least one block"):
+        Edid([])
+
+
+def test_serial_and_non_text_descriptors(laptop_edid_bytes: bytes) -> None:
+    edid = Edid.from_bytes(laptop_edid_bytes)
+    assert edid.serial_number == 0
+    descs = edid.descriptors()
+    assert descs[0].text is None  # a timing
+    assert descs[1].text is None  # manufacturer data, not text
+
+
+def test_product_name_descriptor_is_preferred(base_only_bytes: bytes) -> None:
+    base = bytearray(base_only_bytes)
+    base[108:126] = bytes([0, 0, 0, 0xFC, 0]) + b"Test Panel\n  "
+    edid = Edid.from_bytes(with_fixed_checksum(bytes(base)))
+    assert edid.product_name == "Test Panel"
+    assert edid.display_name == "AUO Test Panel"
+
+
+def test_cta_offsets_ignore_other_extension_types() -> None:
+    from linuxcru.core.edid import EXT_DISPLAYID, cta_dtd_offsets
+
+    assert cta_dtd_offsets(bytes([EXT_DISPLAYID, 0x03, 0x04]) + bytes(125)) == []
+
+
+def test_fill_cta_block_refuses_overflow() -> None:
+    from linuxcru.core.edid import _fill_cta_block, new_cta_block
+
+    dtd = bytes([0x78, 0x37]) + bytes(16)
+    with pytest.raises(EdidError, match="too many DTDs"):
+        _fill_cta_block(new_cta_block(), [dtd] * 7)
+
+
+def test_no_room_for_a_new_extension_block(base_only_bytes: bytes) -> None:
+    from linuxcru.core.edid import MAX_BLOCKS
+
+    filler = with_fixed_checksum(bytes([0x70]) + bytes(127))  # DisplayID, no CTA
+    edid = Edid([base_only_bytes] + [filler] * (MAX_BLOCKS - 1))
+    timings = Edid.from_bytes(base_only_bytes).timings() * 2
+    with pytest.raises(EdidError, match="no room"):
+        edid.with_timings(timings)
