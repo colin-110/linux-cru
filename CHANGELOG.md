@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `linuxcru show` and the window crashed (division by zero) on an EDID with a
+  zero-size detailed timing. They now report which timing is invalid.
+
+### Testing
+- Property-based tests with hypothesis, including fuzzing of corrupted EDIDs
+  and a comparison with the `cvt` tool on random modes.
+- Error-path tests and branch coverage, enforced in CI (minimum 90%).
+- Manual test plan in `docs/manual-test-plan.md`.
+
 ## 0.1.0 (2026-11-13)
 
 First release. Tested on Kubuntu with KDE Plasma 6 (Wayland) on an AUO
