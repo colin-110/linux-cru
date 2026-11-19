@@ -114,3 +114,43 @@ def test_edid_lists_timings_in_order(laptop_edid_bytes: bytes) -> None:
     assert [round(d.timing.refresh_hz, 2) for d in found] == [60.05, 96.0]
     assert edid.preferred_timing == found[0].timing
     assert found[1].location == "extension block 1"
+
+
+# --------------------------------------------------------- error paths
+
+
+def test_dtd_must_be_18_bytes() -> None:
+    with pytest.raises(TimingError, match="18 bytes"):
+        decode_dtd(NATIVE_DTD[:17])
+
+
+def test_blanking_smaller_than_porches_is_rejected() -> None:
+    raw = bytearray(NATIVE_DTD)
+    raw[3] = 10  # horizontal blanking = 10 pixels ...
+    raw[4] &= 0xF0  # ... but front porch + sync alone are 156
+    with pytest.raises(TimingError, match="larger than the blanking"):
+        decode_dtd(bytes(raw))
+
+
+def test_zero_active_size_is_a_problem() -> None:
+    bad = Timing(142_000, 0, 108, 48, 24, 1080, 10, 10, 26)
+    assert "active size must be positive" in bad.problems()
+
+
+def test_interlaced_round_trip() -> None:
+    t = Timing(74_250, 1920, 88, 44, 148, 540, 2, 5, 15, interlaced=True)
+    raw = encode_dtd(t)
+    assert raw[17] & 0x80
+    assert decode_dtd(raw) == t
+    assert t.label().startswith("1920x540i")
+
+
+# Regression test: a mutation test showed that a bug dropping the lowest bit
+# of the pixel clock went unnoticed, because every clock in the other tests
+# happens to be an even number of 10 kHz steps.
+@pytest.mark.parametrize("clock_khz", [10, 142_010, 237_610, MAX_PIXEL_CLOCK_KHZ])
+def test_odd_pixel_clocks_are_stored_exactly(clock_khz: int) -> None:
+    t = Timing(clock_khz, 1920, 108, 48, 24, 1080, 10, 10, 26)
+    raw = encode_dtd(t)
+    assert raw[0:2] == (clock_khz // 10).to_bytes(2, "little")
+    assert decode_dtd(raw).pixel_clock_khz == clock_khz

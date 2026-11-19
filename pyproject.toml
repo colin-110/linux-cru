@@ -19,7 +19,7 @@ dependencies = []
 
 [project.optional-dependencies]
 gui = ["PySide6-Essentials>=6.8"]
-dev = ["pytest", "ruff", "mypy", "pre-commit"]
+dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "mypy", "pre-commit"]
 
 [project.scripts]
 linuxcru = "linuxcru.cli.main:main"
@@ -43,6 +43,16 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["linuxcru"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
+exclude_also = ['if __name__ == "__main__":']
 
 [tool.ruff]
 line-length = 100
