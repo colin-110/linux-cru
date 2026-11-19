@@ -51,7 +51,7 @@ Record who ran each case, when, and on what hardware. Use **pass**, **fail**
 | TC-01 | pass | 2026-11-19 | Found on card1; it was card2 on an earlier boot, and lookup by name still works. |
 | TC-02 | pass | 2026-11-13 | Modes match edid-decode. |
 | TC-03 | pass | 2026-11-19 | 95.999 Hz, 227.00 MHz, warning shown. |
-| TC-04 | pass | 2026-11-19 | No password asked, file times unchanged. Finding: the plan lists files as "would write" even when their content wouldn't change (see issues). |
+| TC-04 | pass | 2026-11-19 | No password asked, file times unchanged. Finding: the plan lists files as "would write" even when their content wouldn't change ([#2](https://github.com/colin-110/linux-cru/issues/2)). |
 | TC-05 | pass | 2026-11-13 | |
 | TC-06 | pass | 2026-11-13 | Failed first (values only updated after Enter); fixed in 864da85, now covered by automated tests. |
 | TC-07 | not run | | |
