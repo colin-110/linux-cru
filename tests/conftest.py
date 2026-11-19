@@ -1,10 +1,16 @@
+import os
 import re
 import subprocess
 from pathlib import Path
 
 import pytest
+from hypothesis import settings
 
 from linuxcru.core.edid import BLOCK_SIZE, with_fixed_checksum
+
+# `HYPOTHESIS_PROFILE=thorough pytest` searches much harder (use before releases).
+settings.register_profile("thorough", max_examples=2000, deadline=None)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

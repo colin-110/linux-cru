@@ -12,7 +12,14 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from linuxcru.core.timing import DTD_SIZE, Timing, decode_dtd, encode_dtd, is_timing_descriptor
+from linuxcru.core.timing import (
+    DTD_SIZE,
+    Timing,
+    TimingError,
+    decode_dtd,
+    encode_dtd,
+    is_timing_descriptor,
+)
 
 BLOCK_SIZE = 128
 HEADER = bytes([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00])
@@ -308,16 +315,19 @@ class Edid:
 
     def detailed_timings(self) -> list[DetailedTiming]:
         """All DTDs, in order. The first one is the preferred (native) mode."""
-        found = [
-            DetailedTiming(decode_dtd(d.data), 0, DESCRIPTOR_OFFSETS[d.slot])
-            for d in self.descriptors()
-            if d.is_timing
-        ]
+        places = [(0, DESCRIPTOR_OFFSETS[d.slot]) for d in self.descriptors() if d.is_timing]
         for index, block in enumerate(self._blocks[1:], start=1):
-            for offset in cta_dtd_offsets(block):
-                found.append(
-                    DetailedTiming(decode_dtd(block[offset : offset + DTD_SIZE]), index, offset)
-                )
+            places += [(index, offset) for offset in cta_dtd_offsets(block)]
+
+        found = []
+        for index, offset in places:
+            raw = self._blocks[index][offset : offset + DTD_SIZE]
+            try:
+                found.append(DetailedTiming(decode_dtd(raw), index, offset))
+            except TimingError as exc:
+                raise EdidError(
+                    f"invalid detailed timing in block {index} at offset {offset}: {exc}"
+                ) from exc
         return found
 
     def timings(self) -> list[Timing]:

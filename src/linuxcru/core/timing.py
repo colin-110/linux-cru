@@ -91,12 +91,13 @@ class Timing:
 
     @property
     def hfreq_khz(self) -> float:
-        return self.pixel_clock_khz / self.htotal
+        return self.pixel_clock_khz / self.htotal if self.htotal else 0.0
 
     @property
     def refresh_hz(self) -> float:
-        """Vertical refresh rate (field rate for interlaced modes)."""
-        return self.pixel_clock_khz * 1000 / (self.htotal * self.vtotal)
+        """Vertical refresh rate (field rate for interlaced modes); 0 if undefined."""
+        frame = self.htotal * self.vtotal
+        return self.pixel_clock_khz * 1000 / frame if frame else 0.0
 
     @property
     def resolution(self) -> tuple[int, int]:
@@ -179,6 +180,8 @@ def decode_dtd(data: bytes) -> Timing:
     vfront = (data[10] >> 4) | (data[11] & 0x0C) << 2
     vsync = (data[10] & 0x0F) | (data[11] & 0x03) << 4
 
+    if hactive == 0 or vactive == 0:
+        raise TimingError("descriptor has a zero active size")
     hback = hblank - hfront - hsync
     vback = vblank - vfront - vsync
     if hback < 0 or vback < 0:

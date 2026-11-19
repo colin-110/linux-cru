@@ -152,12 +152,13 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_show(args: argparse.Namespace) -> None:
     name, edid = _source(args)
+    detailed = edid.detailed_timings()  # fails before anything is printed
     print(
         f"{name}: {edid.display_name} (EDID {edid.version[0]}.{edid.version[1]}, "
         f"{edid.extension_count} extension block(s))"
     )
     print("Detailed resolutions (the first is the preferred mode):")
-    for index, dt in enumerate(edid.detailed_timings(), start=1):
+    for index, dt in enumerate(detailed, start=1):
         print(f"  {format_timing(dt.timing, index)}")
     override = active_overrides(read_cmdline(args.cmdline_file)).get(name)
     if override:
@@ -331,7 +332,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         args.func(args)
-    except (CliError, InstallError) as exc:
+    except (CliError, InstallError, EdidError, TimingError) as exc:
         print(f"linuxcru: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

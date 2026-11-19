@@ -182,3 +182,16 @@ def test_reset_runs_helper(
         (["--dry-run", "uninstall"], False),
         (["uninstall", "--connector", "eDP-1"], True),
     ]
+
+
+def test_show_with_broken_edid_fails_cleanly(
+    env: list[str], tmp_path: Path, laptop_edid_bytes: bytes, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from test_edid import corrupt_descriptor
+
+    broken = tmp_path / "broken.bin"
+    broken.write_bytes(corrupt_descriptor(laptop_edid_bytes))
+    assert run(env, "show", "--edid", str(broken)) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("linuxcru: ") and "offset 72" in captured.err
